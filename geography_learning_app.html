@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中学地理：3Dデジタル地球儀（GeoJSONリアルマップ）</title>
+    <!-- Tailwind CSS for modern glassmorphism UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            background: radial-gradient(circle at center, #060b1e 0%, #02040a 100%);
+            color: white;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.6);
+        }
+        /* Fade in/out transitions */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- High-Tech Loading Overlay -->
+<div id="loading-overlay" class="absolute inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center transition-all duration-700">
+    <div class="relative flex items-center justify-center mb-6">
+        <div class="animate-spin rounded-full h-24 w-24 border-t-2 border-b-2 border-cyan-400"></div>
+        <span class="absolute text-4xl animate-bounce">🌍</span>
+    </div>
+    <h2 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2">リアルな世界地図を生成中...</h2>
+    <p class="text-xs text-slate-400 tracking-widest">GeoJSONデータから国境と海岸線を描画しています</p>
+</div>
+
+<!-- WebGL Canvas Background -->
+<div id="canvas-container"></div>
+
+<!-- Top Header Bar -->
+<div class="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center pointer-events-none">
+    <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-3 pointer-events-auto fade-in">
+        <span class="text-3xl animate-pulse">🌍</span>
+        <div>
+            <h1 class="text-md md:text-lg font-black bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">3Dデジタル地球儀＆時差ナビゲーター</h1>
+            <p class="text-[10px] text-cyan-300 font-semibold tracking-widest uppercase">中学1・2年 地理分野（P.7-8準拠）</p>
+        </div>
+    </div>
+    <div class="flex gap-2 pointer-events-auto">
+        <button onclick="togglePanel('tools')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-cyan-400 hover:bg-cyan-500/10 active:scale-95 transition-all">⏱️ 時差を計算する</button>
+        <button onclick="togglePanel('lesson')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-pink-400 hover:bg-pink-500/10 active:scale-95 transition-all">📖 地理レッスンを開く</button>
+    </div>
+</div>
+
+<!-- Left Panel: Interactive Time Difference Tool -->
+<div id="tools-panel" class="absolute left-4 top-24 w-80 max-h-[80vh] glass-panel rounded-2xl p-5 z-10 overflow-y-auto transition-all duration-300 transform translate-x-0 fade-in">
+    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+        <h2 class="text-md font-bold text-cyan-400 flex items-center gap-2">
+            <span>⏱️</span> 時差計測シミュレーター
+        </h2>
+        <button onclick="togglePanel('tools')" class="text-gray-400 hover:text-white text-sm">✕</button>
+    </div>
+
+    <div class="space-y-4 text-sm">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">基準都市 A (出発地):</label>
+            <select id="cityA" onchange="updateTimeCalculation()" class="w-full bg-slate-900/90 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+                <option value="tokyo" selected>東京 (日本) - 東経135° [UTC+9]</option>
+                <option value="london">ロンドン (英国) - 経度0° [UTC+0]</option>
+                <option value="newyork">ニューヨーク (米国) - 西経75° [UTC-5]</option>
+                <option value="cairo">カイロ (エジプト) - 東経30° [UTC+2]</option>
+                <option value="sydney">シドニー (豪州) - 東経150° [UTC+10]</option>
+            </select>
+        </div>
+
+        <div class="text-center">
+            <span class="inline-block bg-white/5 border border-white/10 p-1 rounded-full px-4 text-[10px] font-bold tracking-widest text-gray-400">BETWEEN</span>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">比較都市 B (到着地):</label>
+            <select id="cityB" onchange="updateTimeCalculation()" class="w-full bg-slate-900/90 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+                <option value="tokyo">東京 (日本) - 東経135° [UTC+9]</option>
+                <option value="london" selected>ロンドン (英国) - 経度0° [UTC+0]</option>
+                <option value="newyork">ニューヨーク (米国) - 西経75° [UTC-5]</option>
+                <option value="cairo">カイロ (エジプト) - 東経30° [UTC+2]</option>
+                <option value="sydney">シドニー (豪州) - 東経150° [UTC+10]</option>
+            </select>
+        </div>
+
+        <!-- Formula display -->
+        <div class="bg-black/40 rounded-xl p-4 border border-white/5 space-y-2">
+            <p class="text-[10px] text-cyan-300 font-bold tracking-wider uppercase">時差の計算ステップ</p>
+            <div class="text-xs space-y-1 text-gray-300">
+                <p id="step-long">経度差の計算: ---</p>
+                <p id="step-div">時差の計算: ---</p>
+            </div>
+            <div class="border-t border-white/10 pt-2 mt-2">
+                <p class="text-xs text-gray-400 font-medium">結果の時差:</p>
+                <p id="calc-result" class="text-2xl font-black text-yellow-300 mt-1">---</p>
+                <p id="calc-explanation" class="text-[11px] text-gray-300 mt-1 leading-relaxed"></p>
+            </div>
+        </div>
+
+        <button onclick="focusSelectedCities()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-cyan-500/20 text-xs active:scale-95">
+            🗺️ この2都市にカメラを合わせる
+        </button>
+    </div>
+</div>
+
+<!-- Right Panel: Lesson Slide Deck -->
+<div id="lesson-panel" class="absolute right-4 top-24 w-80 md:w-96 max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-x-0 fade-in">
+    <div>
+        <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+            <h2 class="text-md font-bold text-pink-400 flex items-center gap-2">
+                <span>📖</span> インタラクティブ地理レッスン
+            </h2>
+            <button onclick="togglePanel('lesson')" class="text-gray-400 hover:text-white text-sm">✕</button>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-5">
+            <div id="slide-progress" class="bg-pink-500 h-full transition-all duration-500" style="width: 25%"></div>
+        </div>
+
+        <!-- Dynamic Slide Content -->
+        <div class="space-y-3 min-h-[220px]">
+            <span id="slide-tag" class="bg-pink-500/20 text-pink-400 text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded">第1章：世界から見た日本</span>
+            <h3 id="slide-title" class="text-lg font-black text-white mt-2">スライドを読み込み中...</h3>
+            <p id="slide-content" class="text-xs md:text-sm text-gray-300 leading-relaxed"></p>
+        </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="flex justify-between items-center gap-3 mt-6 pt-4 border-t border-white/10">
+        <button onclick="prevSlide()" id="btn-prev" class="px-3.5 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none">
+            ◀ 前へ
+        </button>
+        <span id="slide-number" class="text-xs font-semibold text-gray-400">1 / 4</span>
+        <button onclick="nextSlide()" id="btn-next" class="px-3.5 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg text-xs font-bold transition-all">
+            次へ ▶
+        </button>
+    </div>
+</div>
+
+<!-- Navigation Toast -->
+<div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 glass-panel px-4 py-2 rounded-full z-10 text-[11px] text-cyan-300 flex items-center gap-2 pointer-events-none shadow-xl">
+    <span>💡</span> ドラッグで回転 | スクロールで拡大 | ダブルクリックで初期位置
+</div>
+
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", 
+                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+
+<!-- TopoJSON decoders to process geography atlas data -->
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const cities = {
+        tokyo: { name: '東京', lat: 35.6762, lng: 135.5012, color: 0xff0055 },
+        london: { name: 'ロンドン', lat: 51.5074, lng: -0.1278, color: 0x00f5d4 },
+        newyork: { name: 'ニューヨーク', lat: 40.7128, lng: -74.0060, color: 0x3a86ff },
+        cairo: { name: 'カイロ', lat: 30.0444, lng: 31.2357, color: 0xffbe0b },
+        sydney: { name: 'シドニー', lat: -33.8688, lng: 151.2093, color: 0xe0aaff }
+    };
+
+    let scene, camera, renderer, globe, clouds, atmosphere, controls;
+    let cityMarkers = {};
+    let activeArc = null;
+    let earthTexture;
+
+    // Load topology data from official CDN and convert to high-definition canvas texture map
+    async function loadGeoJsonAndCreateTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // Draw deep ocean space
+        const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        oceanGrad.addColorStop(0, '#040b1e');
+        oceanGrad.addColorStop(1, '#081330');
+        ctx.fillStyle = oceanGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw subtle coordinate ocean grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < canvas.width; i += canvas.width / 24) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+        }
+        for (let j = 0; j < canvas.height; j += canvas.height / 12) {
+            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+        }
+
+        // Project coordinate values smoothly onto 2D canvas coordinates
+        function toXY(lng, lat) {
+            const x = ((lng + 180) / 360) * canvas.width;
+            const y = ((90 - lat) / 180) * canvas.height;
+            return { x, y };
+        }
+
+        try {
+            // Fetch official physical Natural Earth Topology JSON data (Now fetching Countries!)
+            const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+            const topology = await response.json();
+            // Convert TopoJSON to standard GeoJSON collection
+            const geojson = topojson.feature(topology, topology.objects.countries);
+
+            // Draw vector land paths onto canvas
+            ctx.fillStyle = '#0f766e'; // Glowing emerald continents
+            ctx.strokeStyle = '#14b8a6'; // High contrast country borders
+            ctx.lineWidth = 1.0; // Slightly thinner for detailed country boundaries
+
+            geojson.features.forEach(feature => {
+                const geom = feature.geometry;
+                if (geom.type === 'Polygon') {
+                    drawPolygon(geom.coordinates);
+                } else if (geom.type === 'MultiPolygon') {
+                    geom.coordinates.forEach(polygon => drawPolygon(polygon));
+                }
+            });
+
+            function drawPolygon(coordinates) {
+                coordinates.forEach(ring => {
+                    ctx.beginPath();
+                    ring.forEach((coord, index) => {
+                        const pt = toXY(coord[0], coord[1]);
+                        if (index === 0) ctx.moveTo(pt.x, pt.y);
+                        else ctx.lineTo(pt.x, pt.y);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                });
+            }
+
+            // Draw an amplified bright pink Japan Archipelago overlay to make sure it's fully visible!
+            ctx.fillStyle = '#ff0055';
+            ctx.strokeStyle = '#ff73a1';
+            ctx.lineWidth = 3;
+            const japanGeo = [[130,31],[130.5,32.5],[132,33],[133,34.5],[135,34.5],[137,36],[139,35.5],[140,38],[141.5,41],[141,43],[143,43],[145.5,44],[144,45],[141,45],[140,42],[138,40],[136,37.5],[134,35.5],[132,34],[130.2,32.5],[130,31]];
+            ctx.beginPath();
+            japanGeo.forEach((coord, index) => {
+                const pt = toXY(coord[0], coord[1]);
+                if (index === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+        } catch (e) {
+            console.error("GeoJSON mapping failed, falling back to local procedural shapes: ", e);
+            // Dynamic simple geometry fallback in case of connection drop
+            ctx.fillStyle = '#065f46';
+            ctx.fillRect(200, 200, 400, 300);
+            ctx.fillRect(1000, 300, 500, 400);
+        }
+
+        // Hide Generating loading panel
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.classList.add('opacity-0', 'pointer-events-none');
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    // Procedural Atmosphere cloud texture
+    function generateCloudTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(0,0,1024,512);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * 1024;
+            const y = Math.random() * 300 + 100;
+            const radius = Math.random() * 100 + 50;
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            grad.addColorStop(0, 'rgba(255,255,255,0.22)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    // Core 3D engine initializations
+    async function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 3.2);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 1.5;
+        controls.maxDistance = 6.0;
+
+        // Load map and apply onto 3D sphere
+        earthTexture = await loadGeoJsonAndCreateTexture();
+        const geo = new THREE.SphereGeometry(1.0, 64, 64);
+        const mat = new THREE.MeshPhongMaterial({
+            map: earthTexture,
+            shininess: 45,
+            specular: new THREE.Color('#112445'),
+            bumpScale: 0.04
+        });
+        
+        globe = new THREE.Mesh(geo, mat);
+        // Correct alignment of GeoJSON projection
+        globe.rotation.y = -Math.PI / 2;
+        scene.add(globe);
+
+        // Atmosphere halo effect
+        const atmosphereGeo = new THREE.SphereGeometry(1.15, 32, 32);
+        const atmosphereMat = new THREE.ShaderMaterial({
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vNormal;
+                void main() {
+                    float intensity = pow(0.7 - dot(vNormal, vec3(0, 0, 1.0)), 2.5);
+                    gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            side: THREE.BackSide,
+            transparent: true
+        });
+        atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+        scene.add(atmosphere);
+
+        // Cloud overlay
+        const cloudTex = generateCloudTexture();
+        const cloudGeo = new THREE.SphereGeometry(1.02, 64, 64);
+        const cloudMat = new THREE.MeshBasicMaterial({
+            map: cloudTex,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+        });
+        clouds = new THREE.Mesh(cloudGeo, cloudMat);
+        globe.add(clouds);
+
+        // Draw Standard Prime Meridians
+        drawKeyLines();
+
+        // Pin markers
+        addPins();
+
+        // Ambient Lights
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambient);
+
+        // Sunlight source
+        const sunlight = new THREE.DirectionalLight(0xffffff, 1.3);
+        sunlight.position.set(5, 3, 5);
+        scene.add(sunlight);
+
+        const fillLight = new THREE.DirectionalLight(0x1e3a8a, 0.4);
+        fillLight.position.set(-5, -3, -5);
+        scene.add(fillLight);
+
+        // Resize behavior
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Double click resets camera
+        window.addEventListener('dblclick', () => {
+            camera.position.set(0, 0, 3.2);
+        });
+
+        animate();
+    }
+
+    function drawKeyLines() {
+        const lineCyan = new THREE.LineBasicMaterial({ color: 0x00f5d4, linewidth: 2 });
+        const lineMagenta = new THREE.LineBasicMaterial({ color: 0xff0055, linewidth: 3 });
+
+        buildLine(0, lineCyan);   // Prime Meridian
+        buildLine(135, lineMagenta); // Japan Meridian
+    }
+
+    function buildLine(lng, material) {
+        if (!globe) return;
+        const points = [];
+        const radLng = (lng * Math.PI) / 180;
+        for (let lat = -90; lat <= 90; lat += 2) {
+            const radLat = (lat * Math.PI) / 180;
+            const x = Math.cos(radLat) * Math.sin(radLng);
+            const y = Math.sin(radLat);
+            const z = Math.cos(radLat) * Math.cos(radLng);
+            points.push(new THREE.Vector3(x, y, z).multiplyScalar(1.008));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(lineGeo, material);
+        globe.add(line);
+    }
+
+    // Sphere coordinates converter
+    function toCartesian(lat, lng, radius = 1.0) {
+        const phi = (90 - lat) * (Math.PI / 180);
+        const theta = (lng + 180) * (Math.PI / 180);
+        return new THREE.Vector3(
+            -radius * Math.sin(phi) * Math.sin(theta),
+            radius * Math.cos(phi),
+            -radius * Math.sin(phi) * Math.cos(theta)
+        );
+    }
+
+    function addPins() {
+        if (!globe) return;
+        Object.keys(cities).forEach(key => {
+            const city = cities[key];
+            // Since our sphere has `globe.rotation.y = -Math.PI / 2`, we adjust standard map coordinates
+            const pos = toCartesian(city.lat, city.lng + 90, 1.015);
+
+            const markerGeo = new THREE.SphereGeometry(0.015, 16, 16);
+            const markerMat = new THREE.MeshBasicMaterial({ color: city.color });
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.copy(pos);
+            globe.add(marker);
+            cityMarkers[key] = marker;
+        });
+    }
+
+    // Interactive fly camera
+    window.flyToCity = function(cityKey) {
+        if (!globe || !camera || !controls) return;
+        const city = cities[cityKey];
+        if (!city) return;
+
+        // Offset coordinate system correction matching `globe.rotation.y` rotation offset
+        const destPos = toCartesian(city.lat, city.lng + 90, 2.4);
+        const steps = 40;
+        let step = 0;
+        const startPos = camera.position.clone();
+
+        function run() {
+            if (step < steps) {
+                step++;
+                const t = step / steps;
+                const ease = t * (2 - t);
+                camera.position.lerpVectors(startPos, destPos, ease);
+                controls.update();
+                requestAnimationFrame(run);
+            }
+        }
+        run();
+    }
+
+    // Draw arc link curve over the 3D map
+    window.drawTimeDistanceArc = function(keyA, keyB) {
+        if (!globe) return;
+        if (activeArc) globe.remove(activeArc);
+
+        const cityA = cities[keyA];
+        const cityB = cities[keyB];
+        if (!cityA || !cityB) return;
+
+        const posA = toCartesian(cityA.lat, cityA.lng + 90, 1.02);
+        const posB = toCartesian(cityB.lat, cityB.lng + 90, 1.02);
+
+        const points = [];
+        for (let i = 0; i <= 30; i++) {
+            const t = i / 30;
+            const mid = new THREE.Vector3().lerpVectors(posA, posB, t);
+            mid.normalize().multiplyScalar(1.0 + Math.sin(t * Math.PI) * 0.18);
+            points.push(mid);
+        }
+
+        const arcGeo = new THREE.BufferGeometry().setFromPoints(points);
+        const arcMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 4 });
+        activeArc = new THREE.Line(arcGeo, arcMat);
+        globe.add(activeArc);
+    }
+
+    // Render animator loop
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        if (clouds) clouds.rotation.y += 0.0004;
+        if (globe && !controls.state === -1) {
+            globe.rotation.y += 0.0003;
+        }
+
+        if (controls && renderer && scene && camera) {
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    }
+
+    window.onload = async () => {
+        await init();
+        updateTimeCalculation();
+        loadSlide(0);
+    };
+</script>
+
+<script>
+    const calculatorCities = {
+        tokyo: { name: '東京 (日本)', lng: 135, dir: 'E', utc: 9 },
+        london: { name: 'ロンドン (英国)', lng: 0, dir: 'E', utc: 0 },
+        newyork: { name: 'ニューヨーク (米国)', lng: 75, dir: 'W', utc: -5 },
+        cairo: { name: 'カイロ (エジプト)', lng: 30, dir: 'E', utc: 2 },
+        sydney: { name: 'シドニー (豪州)', lng: 150, dir: 'E', utc: 10 }
+    };
+
+    function updateTimeCalculation() {
+        const keyA = document.getElementById('cityA').value;
+        const keyB = document.getElementById('cityB').value;
+
+        const cA = calculatorCities[keyA];
+        const cB = calculatorCities[keyB];
+
+        let longDiff = 0;
+        if (cA.dir === cB.dir) {
+            longDiff = Math.abs(cA.lng - cB.lng);
+        } else {
+            longDiff = cA.lng + cB.lng;
+        }
+
+        const timeDiff = longDiff / 15;
+
+        const stepLongEl = document.getElementById('step-long');
+        const stepDivEl = document.getElementById('step-div');
+        const calcResultEl = document.getElementById('calc-result');
+        const calcExplanationEl = document.getElementById('calc-explanation');
+
+        if (stepLongEl) {
+            stepLongEl.innerHTML = `経度差: <span class="text-cyan-400 font-bold">${cA.name} (${cA.lng}°${cA.dir}) ⇄ ${cB.name} (${cB.lng}°${cB.dir}) = ${longDiff}°</span>`;
+        }
+        if (stepDivEl) {
+            stepDivEl.innerHTML = `計算式: <span class="text-cyan-400 font-bold">${longDiff}° ÷ 15° = ${timeDiff}時間</span>`;
+        }
+        if (calcResultEl) {
+            calcResultEl.innerText = `${timeDiff} 時間`;
+        }
+
+        const advancedStr = cA.utc > cB.utc ? `${cA.name} の方が進んでいます` : `${cB.name} の方が進んでいます`;
+        if (calcExplanationEl) {
+            calcExplanationEl.innerText = `※地球は1時間あたり15度回転します。${advancedStr}。`;
+        }
+
+        if (window.drawTimeDistanceArc) {
+            window.drawTimeDistanceArc(keyA, keyB);
+        }
+    }
+
+    function focusSelectedCities() {
+        const keyA = document.getElementById('cityA').value;
+        if (window.flyToCity) {
+            window.flyToCity(keyA);
+        }
+    }
+
+    function togglePanel(id) {
+        const p = document.getElementById(id === 'tools' ? 'tools-panel' : 'lesson-panel');
+        if (!p) return;
+        if (p.classList.contains('translate-x-0')) {
+            p.classList.remove('translate-x-0');
+            p.classList.add(id === 'tools' ? '-translate-x-96' : 'translate-x-[500px]');
+        } else {
+            p.classList.add('translate-x-0');
+            p.classList.remove(id === 'tools' ? '-translate-x-96' : 'translate-x-[500px]');
+        }
+    }
+
+    const slides = [
+        {
+            tag: "第1章：世界から見た日本",
+            title: "地球儀と緯度・経度",
+            content: "地球上の位置を正確に表すために使われるのが「緯度（いど）」と「経度（けいど）」です。地球の真ん中を通る横の線を「赤道（せきどう）」と呼び、ここを緯度0度とします。縦の線はロンドンを通る「本初子午線（ほんしょしごせん）」を基準の経度0度（シアン色の輝く線）として、東（東経）西（西経）それぞれ180度まで計ります。",
+            city: "london"
+        },
+        {
+            tag: "第2章：日本の基準となる線",
+            title: "日本の位置と標準時",
+            content: "日本は世界地図で見ると、ユーラシア大陸の東に並ぶ島国です。日本の標準時（ひょうじゅんじ）は、兵庫県明石市を通る「東経135度」の経線を基準にしています。地球儀上のピンクの太線（135°E）の場所をよく見てみよう！日本がちょうどその上に位置しているよ。",
+            city: "tokyo"
+        },
+        {
+            tag: "第3章：時差の基本法則",
+            title: "時差はどうしてできる？",
+            content: "地球は1日（24時間）で、360度くるりと1回転（自転）します。このため、太陽が昇るタイミングが国ごとに異なります。360度を24時間で割ると、「1時間あたり15度」進むことが計算できます。つまり経度が15度違うと、1時間の時差が生まれるんだ！",
+            city: "cairo"
+        },
+        {
+            tag: "第4章：実際に時差を計算しよう！",
+            title: "テストに出る時差計算！",
+            content: "例えば、日本の東経135度と、イギリスの経度0度（本初子午線）の時差を計算してみよう。 経度差は、135 - 0 = 135度。これを15で割ると、135 ÷ 15 = 9となり、時差は9時間になります！隣の「時差計算ツール」を使って、ロンドンやニューヨークなどいろんな都市の時差をためしてみよう！",
+            city: "newyork"
+        }
+    ];
+
+    let currentSlide = 0;
+
+    function loadSlide(index) {
+        currentSlide = index;
+        const slide = slides[index];
+
+        const slideTagEl = document.getElementById('slide-tag');
+        const slideTitleEl = document.getElementById('slide-title');
+        const slideContentEl = document.getElementById('slide-content');
+        const slideNumberEl = document.getElementById('slide-number');
+        const slideProgressEl = document.getElementById('slide-progress');
+        const btnPrevEl = document.getElementById('btn-prev');
+        const btnNextEl = document.getElementById('btn-next');
+
+        if (slideTagEl) slideTagEl.innerText = slide.tag;
+        if (slideTitleEl) slideTitleEl.innerText = slide.title;
+        if (slideContentEl) slideContentEl.innerText = slide.content;
+        if (slideNumberEl) slideNumberEl.innerText = `${index + 1} / ${slides.length}`;
+
+        if (slideProgressEl) {
+            slideProgressEl.style.width = `${((index + 1) / slides.length) * 100}%`;
+        }
+
+        if (btnPrevEl) btnPrevEl.disabled = index === 0;
+        if (btnNextEl) {
+            btnNextEl.innerText = index === slides.length - 1 ? "もう一度最初から" : "次へ ▶";
+        }
+
+        if (window.flyToCity) {
+            window.flyToCity(slide.city);
+        }
+    }
+
+    window.nextSlide = () => {
+        if (currentSlide < slides.length - 1) {
+            loadSlide(currentSlide + 1);
+        } else {
+            loadSlide(0);
+        }
+    }
+
+    window.prevSlide = () => {
+        if (currentSlide > 0) {
+            loadSlide(currentSlide - 1);
+        }
+    }
+</script>
+</body>
+</html>
