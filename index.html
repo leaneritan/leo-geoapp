@@ -127,7 +127,7 @@
 </div>
 
 <!-- Right Panel: Lesson Slide Deck -->
-<div id="lesson-panel" class="absolute right-4 top-24 w-80 md:w-96 max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-x-[500px] fade-in">
+<div id="lesson-panel" class="absolute right-4 top-24 w-80 md:w-96 max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-x-[120%] fade-in">
     <div>
         <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
             <h2 class="text-md font-bold text-pink-400 flex items-center gap-2">
@@ -649,9 +649,9 @@
         const quiz = document.getElementById('quiz-panel');
 
         const panels = [
-            { id: 'tools', el: tools, openClass: 'translate-x-0', closeClass: '-translate-x-[120%]', axis: 'x' },
-            { id: 'lesson', el: lesson, openClass: 'translate-x-0', closeClass: 'translate-x-[120%]', axis: 'x' },
-            { id: 'quiz', el: quiz, openClass: 'translate-y-0', closeClass: 'translate-y-[100vh]', axis: 'y' }
+            { id: 'tools', el: tools, openClass: 'translate-x-0', closeClass: '-translate-x-[120%]' },
+            { id: 'lesson', el: lesson, openClass: 'translate-x-0', closeClass: 'translate-x-[120%]' },
+            { id: 'quiz', el: quiz, openClass: 'translate-y-0', closeClass: 'translate-y-[100vh]' }
         ];
 
         panels.forEach(p => {
