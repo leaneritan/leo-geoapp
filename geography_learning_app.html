@@ -64,13 +64,14 @@
         </div>
     </div>
     <div class="flex gap-2 pointer-events-auto">
-        <button onclick="togglePanel('tools')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-cyan-400 hover:bg-cyan-500/10 active:scale-95 transition-all">⏱️ 時差を計算する</button>
-        <button onclick="togglePanel('lesson')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-pink-400 hover:bg-pink-500/10 active:scale-95 transition-all">📖 地理レッスンを開く</button>
+        <button onclick="togglePanel('tools')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-cyan-400 hover:bg-cyan-500/10 active:scale-95 transition-all">⏱️ 時差計算</button>
+        <button onclick="togglePanel('lesson')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-pink-400 hover:bg-pink-500/10 active:scale-95 transition-all">📖 レッスン</button>
+        <button onclick="togglePanel('quiz')" class="glass-panel px-4 py-2.5 rounded-xl font-bold text-xs text-yellow-400 hover:bg-yellow-500/10 active:scale-95 transition-all">✍️ クイズ</button>
     </div>
 </div>
 
 <!-- Left Panel: Interactive Time Difference Tool -->
-<div id="tools-panel" class="absolute left-4 top-24 w-80 max-h-[80vh] glass-panel rounded-2xl p-5 z-10 overflow-y-auto transition-all duration-300 transform translate-x-0 fade-in">
+<div id="tools-panel" class="absolute left-4 top-24 w-80 max-h-[80vh] glass-panel rounded-2xl p-5 z-10 overflow-y-auto transition-all duration-300 transform -translate-x-[120%] fade-in">
     <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
         <h2 class="text-md font-bold text-cyan-400 flex items-center gap-2">
             <span>⏱️</span> 時差計測シミュレーター
@@ -126,7 +127,7 @@
 </div>
 
 <!-- Right Panel: Lesson Slide Deck -->
-<div id="lesson-panel" class="absolute right-4 top-24 w-80 md:w-96 max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-x-0 fade-in">
+<div id="lesson-panel" class="absolute right-4 top-24 w-80 md:w-96 max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-x-[500px] fade-in">
     <div>
         <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
             <h2 class="text-md font-bold text-pink-400 flex items-center gap-2">
@@ -160,6 +161,48 @@
     </div>
 </div>
 
+<!-- Center Panel: Quiz System -->
+<div id="quiz-panel" class="absolute left-1/2 top-24 -translate-x-1/2 w-80 md:w-[450px] max-h-[80vh] glass-panel rounded-2xl p-6 z-10 flex flex-col justify-between overflow-y-auto transition-all duration-300 transform translate-y-[100vh] fade-in">
+    <div>
+        <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+            <h2 class="text-md font-bold text-yellow-400 flex items-center gap-2">
+                <span>✍️</span> 地理実力テスト
+            </h2>
+            <button onclick="togglePanel('quiz')" class="text-gray-400 hover:text-white text-sm">✕</button>
+        </div>
+
+        <div id="quiz-start-screen" class="text-center py-8 space-y-4">
+            <p class="text-sm text-gray-300">これまでのレッスン内容からクイズを出題します。<br>全問正解を目指しましょう！</p>
+            <button onclick="startQuiz()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-950 font-bold py-3 px-8 rounded-xl transition-all active:scale-95 shadow-lg shadow-yellow-500/20">
+                テスト開始
+            </button>
+        </div>
+
+        <div id="quiz-content" class="hidden space-y-4">
+            <div class="flex justify-between items-center text-[10px] text-gray-400 uppercase tracking-widest">
+                <span id="quiz-progress-text">第 1 問 / 5</span>
+                <span id="quiz-score-text">SCORE: 0</span>
+            </div>
+            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                <div id="quiz-progress-bar" class="bg-yellow-500 h-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <h3 id="quiz-question" class="text-lg font-bold text-white leading-tight py-2"></h3>
+            <div id="quiz-options" class="grid grid-cols-1 gap-2">
+                <!-- Options will be injected here -->
+            </div>
+        </div>
+
+        <div id="quiz-result" class="hidden text-center py-6 space-y-4">
+            <h3 class="text-2xl font-black text-yellow-400">結果発表</h3>
+            <div class="text-5xl font-black text-white" id="final-score">0 / 5</div>
+            <p id="quiz-feedback" class="text-sm text-gray-300"></p>
+            <button onclick="startQuiz()" class="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all">
+                もう一度挑戦する
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Navigation Toast -->
 <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 glass-panel px-4 py-2 rounded-full z-10 text-[11px] text-cyan-300 flex items-center gap-2 pointer-events-none shadow-xl">
     <span>💡</span> ドラッグで回転 | スクロールで拡大 | ダブルクリックで初期位置
@@ -182,7 +225,12 @@
         london: { name: 'ロンドン', lat: 51.5074, lng: -0.1278, color: 0x00f5d4 },
         newyork: { name: 'ニューヨーク', lat: 40.7128, lng: -74.0060, color: 0x3a86ff },
         cairo: { name: 'カイロ', lat: 30.0444, lng: 31.2357, color: 0xffbe0b },
-        sydney: { name: 'シドニー', lat: -33.8688, lng: 151.2093, color: 0xe0aaff }
+        sydney: { name: 'シドニー', lat: -33.8688, lng: 151.2093, color: 0xe0aaff },
+        sapporo: { name: '札幌', lat: 43.0611, lng: 141.3564, color: 0xff0055 },
+        sendai: { name: '仙台', lat: 38.2682, lng: 140.8694, color: 0xff0055 },
+        osaka: { name: '大阪', lat: 34.6937, lng: 135.5023, color: 0xff0055 },
+        hiroshima: { name: '広島', lat: 34.3853, lng: 132.4553, color: 0xff0055 },
+        fukuoka: { name: '福岡', lat: 33.5904, lng: 130.4017, color: 0xff0055 }
     };
 
     let scene, camera, renderer, globe, clouds, atmosphere, controls;
@@ -596,15 +644,26 @@
     }
 
     function togglePanel(id) {
-        const p = document.getElementById(id === 'tools' ? 'tools-panel' : 'lesson-panel');
-        if (!p) return;
-        if (p.classList.contains('translate-x-0')) {
-            p.classList.remove('translate-x-0');
-            p.classList.add(id === 'tools' ? '-translate-x-96' : 'translate-x-[500px]');
-        } else {
-            p.classList.add('translate-x-0');
-            p.classList.remove(id === 'tools' ? '-translate-x-96' : 'translate-x-[500px]');
-        }
+        const tools = document.getElementById('tools-panel');
+        const lesson = document.getElementById('lesson-panel');
+        const quiz = document.getElementById('quiz-panel');
+
+        const panels = [
+            { id: 'tools', el: tools, openClass: 'translate-x-0', closeClass: '-translate-x-[120%]', axis: 'x' },
+            { id: 'lesson', el: lesson, openClass: 'translate-x-0', closeClass: 'translate-x-[120%]', axis: 'x' },
+            { id: 'quiz', el: quiz, openClass: 'translate-y-0', closeClass: 'translate-y-[100vh]', axis: 'y' }
+        ];
+
+        panels.forEach(p => {
+            if (p.id === id) {
+                const isOpen = p.el.classList.contains(p.openClass);
+                p.el.classList.toggle(p.openClass, !isOpen);
+                p.el.classList.toggle(p.closeClass, isOpen);
+            } else {
+                p.el.classList.remove(p.openClass);
+                p.el.classList.add(p.closeClass);
+            }
+        });
     }
 
     const slides = [
@@ -631,6 +690,12 @@
             title: "テストに出る時差計算！",
             content: "例えば、日本の東経135度と、イギリスの経度0度（本初子午線）の時差を計算してみよう。 経度差は、135 - 0 = 135度。これを15で割ると、135 ÷ 15 = 9となり、時差は9時間になります！隣の「時差計算ツール」を使って、ロンドンやニューヨークなどいろんな都市の時差をためしてみよう！",
             city: "newyork"
+        },
+        {
+            tag: "第5章：日本の地域構成",
+            title: "日本の7つの地方区分",
+            content: "日本は大きく7つの地方（北海道、東北、関東、中部、近畿、中国・四国、九州）に分けられます。それぞれの地方には中心となる都市があり、独自の文化や産業が発展しています。地球儀上の赤いマーカーをクリックして、各地の位置を確認してみよう！",
+            city: "osaka"
         }
     ];
 
@@ -671,6 +736,8 @@
         if (currentSlide < slides.length - 1) {
             loadSlide(currentSlide + 1);
         } else {
+            // After last slide, offer to take quiz
+            togglePanel('quiz');
             loadSlide(0);
         }
     }
@@ -679,6 +746,99 @@
         if (currentSlide > 0) {
             loadSlide(currentSlide - 1);
         }
+    }
+
+    // --- Quiz Logic ---
+    const quizQuestions = [
+        {
+            q: "日本の標準時子午線は東経何度ですか？",
+            options: ["東経130度", "東経135度", "東経140度", "東経145度"],
+            correct: 1,
+            hint: "兵庫県明石市を通る経線です。"
+        },
+        {
+            q: "地球が1時間あたりに自転する角度は何度ですか？",
+            options: ["10度", "15度", "20度", "25度"],
+            correct: 1,
+            hint: "360度を24時間で割ってみましょう。"
+        },
+        {
+            q: "ロンドンを通る、経度0度の線を何と呼びますか？",
+            options: ["赤道", "日付変更線", "本初子午線", "北回帰線"],
+            correct: 2,
+            hint: "すべての経度の基準となる線です。"
+        },
+        {
+            q: "日本とイギリス（ロンドン）の時差は何時間ですか？",
+            options: ["7時間", "8時間", "9時間", "10時間"],
+            correct: 2,
+            hint: "135 ÷ 15 を計算してみましょう。"
+        },
+        {
+            q: "緯度0度の線を何と呼びますか？",
+            options: ["北極点", "赤道", "南極点", "子午線"],
+            correct: 1,
+            hint: "地球を北半球と南半球に分ける線です。"
+        }
+    ];
+
+    let currentQuizIndex = 0;
+    let quizScore = 0;
+
+    window.startQuiz = function() {
+        currentQuizIndex = 0;
+        quizScore = 0;
+        document.getElementById('quiz-start-screen').classList.add('hidden');
+        document.getElementById('quiz-result').classList.add('hidden');
+        document.getElementById('quiz-content').classList.remove('hidden');
+        loadQuizQuestion();
+    };
+
+    function loadQuizQuestion() {
+        const question = quizQuestions[currentQuizIndex];
+        document.getElementById('quiz-question').innerText = question.q;
+        document.getElementById('quiz-progress-text').innerText = `第 ${currentQuizIndex + 1} 問 / ${quizQuestions.length}`;
+        document.getElementById('quiz-score-text').innerText = `SCORE: ${quizScore}`;
+        document.getElementById('quiz-progress-bar').style.width = `${((currentQuizIndex) / quizQuestions.length) * 100}%`;
+
+        const optionsContainer = document.getElementById('quiz-options');
+        optionsContainer.innerHTML = '';
+        question.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = "w-full text-left bg-white/5 hover:bg-white/10 border border-white/10 p-3 rounded-xl text-sm transition-all active:scale-95";
+            btn.innerText = `${idx + 1}. ${opt}`;
+            btn.onclick = () => checkQuizAnswer(idx);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function checkQuizAnswer(idx) {
+        const question = quizQuestions[currentQuizIndex];
+        if (idx === question.correct) {
+            quizScore++;
+            // Simple visual feedback could be added here
+        }
+
+        currentQuizIndex++;
+        if (currentQuizIndex < quizQuestions.length) {
+            loadQuizQuestion();
+        } else {
+            showQuizResults();
+        }
+    }
+
+    function showQuizResults() {
+        document.getElementById('quiz-content').classList.add('hidden');
+        document.getElementById('quiz-result').classList.remove('hidden');
+        document.getElementById('final-score').innerText = `${quizScore} / ${quizQuestions.length}`;
+
+        let feedback = "";
+        if (quizScore === quizQuestions.length) feedback = "完璧です！地理マスターですね！";
+        else if (quizScore >= 3) feedback = "素晴らしい！あと一歩で満点です。";
+        else feedback = "もう一度レッスンを復習してみましょう。";
+
+        document.getElementById('quiz-feedback').innerText = feedback;
+        document.getElementById('quiz-progress-bar').style.width = "100%";
     }
 </script>
 </body>
