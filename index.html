@@ -29,14 +29,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.6);
         }
-        /* Fade in/out transitions */
-        .fade-in {
-            animation: fadeIn 0.5s ease-out forwards;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
     </style>
 </head>
 <body>
@@ -654,14 +646,27 @@
             { id: 'quiz', el: quiz, openClass: 'translate-y-0', closeClass: 'translate-y-[100vh]' }
         ];
 
+        const targetPanel = panels.find(p => p.id === id);
+        if (!targetPanel) return;
+
+        const isOpening = targetPanel.el.classList.contains(targetPanel.closeClass);
+
         panels.forEach(p => {
             if (p.id === id) {
-                const isOpen = p.el.classList.contains(p.openClass);
-                p.el.classList.toggle(p.openClass, !isOpen);
-                p.el.classList.toggle(p.closeClass, isOpen);
+                if (isOpening) {
+                    p.el.classList.add(p.openClass);
+                    p.el.classList.remove(p.closeClass);
+                } else {
+                    p.el.classList.remove(p.openClass);
+                    p.el.classList.add(p.closeClass);
+                }
             } else {
-                p.el.classList.remove(p.openClass);
-                p.el.classList.add(p.closeClass);
+                // When opening a panel, always close others.
+                // When closing a panel, we don't need to do anything to others.
+                if (isOpening) {
+                    p.el.classList.remove(p.openClass);
+                    p.el.classList.add(p.closeClass);
+                }
             }
         });
     }
