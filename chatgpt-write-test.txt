@@ -1,0 +1,2 @@
+ChatGPT write test for leo-geoapp.
+This file can be deleted after confirming repository write access works.
